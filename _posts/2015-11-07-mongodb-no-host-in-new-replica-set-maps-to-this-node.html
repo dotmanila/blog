@@ -1,0 +1,36 @@
+---
+layout: post
+status: publish
+published: true
+title: 'MongoDB: No host in new replica set maps to this node'
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 176
+wordpress_url: http://dotmanila.com/blog/?p=176
+date: '2015-11-07 09:44:21 -0500'
+date_gmt: '2015-11-07 09:44:21 -0500'
+categories:
+- MongoDB
+tags: []
+comments: []
+---
+<p>In the "trivial-errors" category, I imagine one will encounter this error when setting up MongoDB replica sets.</p>
+<pre class="brush: javascript; gutter: true; first-line: 1">> rs.initiate(rsconfig)<br />
+{<br />
+       "ok" : 0,<br />
+       "errmsg" : "No host described in new configuration 1 for replica set replset maps to this node",<br />
+       "code" : 93<br />
+}<&#47;pre><br />
+What this means is that the current instance cannot connect to host 1 in my rsconfig for a few possible reasons.</p>
+<ul>
+<li>A firewall or network configuration blocking access to the MongoDB port.<&#47;li>
+<li>The host cannot be resolved.<&#47;li>
+<li>There is not mongod instance specified on that host:port.<&#47;li>
+<li>And more<&#47;li><br />
+<&#47;ul><br />
+So the next time you see these errors, check your replica set config, make sure you can connect to each node first.</p>

@@ -1,0 +1,42 @@
+---
+layout: post
+status: publish
+published: true
+title: XtraBackup Complains of Missing perl-DBD-MySQL
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 144
+wordpress_url: http://dotmanila.com/blog/?p=144
+date: '2014-01-09 04:46:44 -0500'
+date_gmt: '2014-01-09 04:46:44 -0500'
+categories:
+- Linux
+tags:
+- xtrabackup
+comments:
+- id: 44
+  author: Oniryck
+  author_email: oniryck@hotmail.fr
+  author_url: ''
+  date: '2014-05-16 14:57:00 -0400'
+  date_gmt: '2014-05-16 14:57:00 -0400'
+  content: Thanks ! Helped me avoid spending some unecessary time on this. ;)
+---
+<p>I was busy testing a PXC cluster today when suddenly was buffled with a confusing error:</p>
+<pre class="brush: shell; gutter: false; first-line: 1">140108 23:33:39 innobackupex: Connecting to MySQL server with DSN &#039;dbi:mysql:;mysql_read_default_group=xtrabackup&#039; (using password: NO).<br />
+innobackupex: Error: Failed to connect to MySQL server as DBD::mysql module is not installed at &#47;usr&#47;bin&#47;innobackupex line 2913.<&#47;pre><br />
+OK, so my first though was DBD::mysql is missing, but as I checked:</p>
+<pre class="brush: shell; gutter: false; first-line: 1">[root@pxc03 keepalived]# yum list installed| grep perl-DBD-MySQL<br />
+perl-DBD-MySQL.x86_64 4.013-3.el6 @base<&#47;pre><br />
+After some digging, it's not actually the module that is missing - it was one of the module's dependency which is the mysql client library.</p>
+<pre class="brush: shell; gutter: false; first-line: 1">[root@pxc03 keepalived]# yum deplist perl-DBD-MySQL.x86_64|grep mysql<br />
+dependency: libmysqlclient.so.16()(64bit)<br />
+provider: mysql-libs.x86_64 5.1.71-1.el6<br />
+dependency: libmysqlclient.so.16(libmysqlclient_16)(64bit)<br />
+provider: mysql-libs.x86_64 5.1.71-1.el6<&#47;pre><br />
+I recently botched the shared-compat package on this instance while rotating packages with "--nodeps" hence, missing it silently :-D. After reinstalling, everything was again fine. I hope nobody else have to lose hair on this one.</p>

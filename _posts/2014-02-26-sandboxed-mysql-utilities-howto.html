@@ -1,0 +1,49 @@
+---
+layout: post
+status: publish
+published: true
+title: Sandboxed MySQL Utilities - HowTo
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 148
+wordpress_url: http://dotmanila.com/blog/?p=148
+date: '2014-02-26 02:54:47 -0500'
+date_gmt: '2014-02-26 02:54:47 -0500'
+categories:
+- MySQL
+- Linux
+tags:
+- python
+- mysql utilities
+comments:
+- id: 41
+  author: SANDBOXED MYSQL UTILITIES &#47; HOWTO.. | Advanced ...
+  author_email: ''
+  author_url: http://www.scoop.it/t/advanced-threats-intelligence-technology/p/4016660126/2014/02/26/sandboxed-mysql-utilities-howto
+  date: '2014-02-26 17:00:26 -0500'
+  date_gmt: '2014-02-26 17:00:26 -0500'
+  content: "[&#8230;] &nbsp; [&#8230;]"
+- id: 47
+  author: Marc
+  author_email: a@b.com
+  author_url: ''
+  date: '2014-07-11 14:16:00 -0400'
+  date_gmt: '2014-07-11 14:16:00 -0400'
+  content: Thanks for this HowTo! Didn't find anything like this on how to setup the
+    generic-distribution of the utilities. Not even on dev.mysql.com or in the readme.
+---
+<p>Often I would need to work on customer servers where MySQL Utilities would be a really good fit for the tools I need. However, I would not want to mess around with the customer servers just to have it running so I would have the tools built and sandboxed on its own directory where I can cleanup later. Here's how:</p>
+<pre class="brush: bash; gutter: true; first-line: 1">cd ~<br />
+wget http:&#47;&#47;mysql.mirrors.hoobly.com&#47;Downloads&#47;MySQLGUITools&#47;mysql-utilities-1.4.1.tar.gz<br />
+tar xzf mysql-utilities-1.4.1.tar.gz<br />
+cd mysql-utilities-1.4.1<br />
+python setup.py build<br />
+python setup.py install --root=&#47;home&#47;revin&#47;mysql-utilities-1.4.1<br />
+export PYTHONPATH=.:&#47;home&#47;revin&#47;mysql-utilities-1.4.1&#47;usr&#47;lib&#47;python2.6&#47;site-packages<br />
+&#47;home&#47;revin&#47;mysql-utilities-1.4.1&#47;usr&#47;bin&#47;mysqlfrm --help<&#47;pre><br />
+Your source of the package and install directory may vary - enjoy!</p>

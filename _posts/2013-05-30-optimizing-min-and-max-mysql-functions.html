@@ -1,0 +1,224 @@
+---
+layout: post
+status: publish
+published: true
+title: Optimizing MIN and MAX MySQL Functions
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 106
+wordpress_url: http://dotmanila.com/blog/?p=106
+date: '2013-05-30 05:51:33 -0400'
+date_gmt: '2013-05-30 05:51:33 -0400'
+categories:
+- MySQL
+tags:
+- optimizer
+- innodb
+comments:
+- id: 6
+  author: Justin Swanhart
+  author_email: greenlion@gmail.com
+  author_url: ''
+  date: '2013-05-30 06:32:00 -0400'
+  date_gmt: '2013-05-30 06:32:00 -0400'
+  content: http:&#47;&#47;bugs.mysql.com&#47;bug.php?id=66187
+- id: 7
+  author: Jervin R
+  author_email: social@dotmanila.com
+  author_url: http://dotmanila.com/blog/
+  date: '2013-05-30 08:46:00 -0400'
+  date_gmt: '2013-05-30 08:46:00 -0400'
+  content: Thanks Justin, seems to be something to watch out for too. I tested with
+    5.5.30 and it looks to have been solved on that version. See my comment on the
+    bug. :)
+- id: 8
+  author: Justin Swanhart
+  author_email: greenlion@gmail.com
+  author_url: ''
+  date: '2013-05-30 09:00:00 -0400'
+  date_gmt: '2013-05-30 09:00:00 -0400'
+  content: If it worked you would see 'select tables optimized away'.  Please check
+    your test.
+- id: 9
+  author: Jervin R
+  author_email: social@dotmanila.com
+  author_url: http://dotmanila.com/blog/
+  date: '2013-05-30 09:05:00 -0400'
+  date_gmt: '2013-05-30 09:05:00 -0400'
+  content: |-
+    Justin,
+
+
+    Yes I just realized, actually the EXPLAIN output is correct but my test was wrong, I had a key on t_id instead which was the point of the bug.
+- id: 10
+  author: Sheeri K. Cabral
+  author_email: awfief@gmail.com
+  author_url: ''
+  date: '2013-05-30 15:41:00 -0400'
+  date_gmt: '2013-05-30 15:41:00 -0400'
+  content: Keep up the great blogs - you're touching on some great topics, and sometimes
+    you have "bugs" in your blogs but overall they're great.
+- id: 11
+  author: Justin Swanhart
+  author_email: greenlion@gmail.com
+  author_url: ''
+  date: '2013-05-30 18:29:00 -0400'
+  date_gmt: '2013-05-30 18:29:00 -0400'
+  content: It is a good blog post.  I just wanted Jervin to be aware that there was
+    a bug that affects this particular feature.  Also, my comments were not about
+    the test in this post, but the comment he filed against the open bug I linked
+    to.
+- id: 12
+  author: Dani&euml;l van Eeden
+  author_email: daniel.van.eeden@gmail.com
+  author_url: ''
+  date: '2013-05-30 20:10:00 -0400'
+  date_gmt: '2013-05-30 20:10:00 -0400'
+  content: It's great to see the explain plans, but what happens if you actually run
+    the query? You probably want to see the execution time and the handler status
+    variables.
+- id: 13
+  author: Jervin R
+  author_email: social@dotmanila.com
+  author_url: http://dotmanila.com/blog/
+  date: '2013-05-30 21:06:00 -0400'
+  date_gmt: '2013-05-30 21:06:00 -0400'
+  content: |-
+    Sheeri,
+
+    Thanks for the feedback!
+
+    Daniel,
+
+    I've made a little update to demonstrate that, thanks!
+---
+<div>
+<p>MySQL can optimize aggregate functions like MIN and MAX as long as the columns specified are indexed. This means that, in the case of MIN and MAX, the optimizer should be able to identify the highest and lowest values of an indexed column from the B-Tree index. Say I have a table like below:</p>
+<pre class="brush: sql; gutter: false; first-line: 1">CREATE TABLE `history` (<br />
+ &nbsp; `h_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,<br />
+ &nbsp; `u_id` int(10) unsigned NOT NULL,<br />
+ &nbsp; `cn_id` int(10) unsigned NOT NULL,<br />
+ &nbsp; `f_id` int(10) unsigned NOT NULL<br />
+ &nbsp; PRIMARY KEY (`h_id`)<br />
+ ) ENGINE=InnoDB<&#47;pre><br />
+If I want to get the MAX value for cn_id, I'd to a query like this which will be a full table scan:</p>
+<div>
+<pre class="brush: sql; gutter: false; first-line: 1">mysql (test) > EXPLAIN SELECT MAX(cn_id) FROM history \G<br />
+ *************************** 1. row ***************************<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; id: 1<br />
+ &nbsp; select_type: SIMPLE<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; table: history<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; type: ALL<br />
+ possible_keys: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; key: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; key_len: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ref: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; rows: 19908716<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Extra:<br />
+ 1 row in set (0.00 sec)<&#47;pre><br />
+<&#47;div></p>
+<div>If I add an index on cn_id, the query is optimized internally:<&#47;div></p>
+<div>
+<pre class="brush: sql; gutter: false; first-line: 1">mysql (test) > EXPLAIN SELECT MAX(cn_id) FROM history \G<br />
+ *************************** 1. row ***************************<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; id: 1<br />
+ &nbsp; select_type: SIMPLE<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; table: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; type: NULL<br />
+ possible_keys: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; key: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; key_len: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ref: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; rows: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Extra: Select tables optimized away<br />
+ 1 row in set (0.00 sec)<&#47;pre><br />
+<&#47;div></p>
+<div>What if I'd want to get MAX(cn_id) for a particular u_id? Well, another full table scan!<&#47;div></p>
+<div>
+<pre class="brush: sql; gutter: false; first-line: 1">mysql (test) > EXPLAIN SELECT MAX(cn_id) FROM history WHERE u_id = 106476 \G<br />
+ *************************** 1. row ***************************<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; id: 1<br />
+ &nbsp; select_type: SIMPLE<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; table: history<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; type: ALL<br />
+ possible_keys: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; key: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; key_len: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ref: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; rows: 19908716<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Extra: Using where<br />
+ 1 row in set (0.00 sec)<&#47;pre><br />
+<&#47;div></p>
+<div>Again the solution is simple, make sure that cn_id is part of an index including the u_id, in this case I created a composite key on (u_id, cn_id) so that once the optimizer found index records for u_id = 106476, within the same index record are the cn_id values.<&#47;div></p>
+<div><&#47;div></p>
+<div>
+<pre class="brush: sql; gutter: false; first-line: 1">mysql (test) > EXPLAIN SELECT MAX(cn_id) FROM history WHERE u_id = 106476 \G&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br />
+ *************************** 1. row ***************************<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; id: 1<br />
+ &nbsp; select_type: SIMPLE<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; table: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; type: NULL<br />
+ possible_keys: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; key: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; key_len: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ref: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; rows: NULL<br />
+ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Extra: Select tables optimized away<br />
+ 1 row in set (0.00 sec)<&#47;pre><br />
+<&#47;div></p>
+<div>Till next time!<&#47;div></p>
+<div><&#47;div></p>
+<div>UPDATE: Based on Daniel's comment, to demonstrate the internal optimization for MIN and MAX with the proper keys in place, here is a sample query executed:<&#47;div></p>
+<div>
+<pre class="brush: sql; gutter: false; first-line: 1">mysql (test) > EXPLAIN PARTITIONS SELECT MAX(h_date) FROM history WHERE t_id = 10947385 \G<br />
+*************************** 1. row ***************************<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; id: 1<br />
+&nbsp; select_type: SIMPLE<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; table: NULL<br />
+&nbsp;&nbsp; partitions: NULL<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; type: NULL<br />
+possible_keys: NULL<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; key: NULL<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; key_len: NULL<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ref: NULL<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; rows: NULL<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Extra: Select tables optimized away<br />
+1 row in set (0.00 sec)</p>
+<p>mysql (test) > pager md5sum<br />
+PAGER set to &#039;md5sum&#039;<br />
+mysql (test) > flush status;<br />
+Query OK, 0 rows affected (0.02 sec)</p>
+<p>mysql (test) > SELECT MAX(h_date) FROM history WHERE t_id = 10947385 \G&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;<br />
+54f1cd94f9bd1390899b13244443968f&nbsp; -<br />
+1 row in set (0.00 sec)</p>
+<p>mysql (test) > nopager<br />
+PAGER set to stdout<br />
+mysql (test) > SHOW STATUS LIKE &#039;handler%&#039;;&nbsp;&nbsp;&nbsp; &nbsp;<br />
++----------------------------+-------+<br />
+| Variable_name&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Value |<br />
++----------------------------+-------+<br />
+| Handler_commit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 1&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| Handler_delete&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| Handler_discover&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| Handler_prepare&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| Handler_read_first&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| Handler_read_key&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 1&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| Handler_read_last&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| Handler_read_next&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| Handler_read_prev&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| Handler_read_rnd&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| Handler_read_rnd_next&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| Handler_rollback&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| Handler_savepoint&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| Handler_savepoint_rollback | 0&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| Handler_update&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| Handler_write&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 0&nbsp;&nbsp;&nbsp;&nbsp; |<br />
++----------------------------+-------+<br />
+16 rows in set (0.04 sec)<&#47;pre><br />
+<&#47;div><br />
+<&#47;div></p>

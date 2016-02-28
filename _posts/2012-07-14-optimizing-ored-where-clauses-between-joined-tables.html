@@ -1,0 +1,178 @@
+---
+layout: post
+status: publish
+published: true
+title: Optimizing OR&rsquo;ed WHERE Clauses Between JOIN&rsquo;ed Tables
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 4
+wordpress_url: http://dotmanila.com/blog/?p=4
+date: '2012-07-14 05:18:10 -0400'
+date_gmt: '2012-07-14 05:18:10 -0400'
+categories:
+- MySQL
+tags:
+- faster queries
+comments: []
+---
+<p>OR conditions are normally difficult to optimize when used on different columns, a pain when the columns are of range conditions and worst when done between 2 or more different tables. Look at my example below, the original query &nbsp;is trying to find rows which conditions are based on columns from the JOIN&rsquo;ed tables.</p>
+<pre class="brush: sql; gutter: true; first-line: 1">
+mysql [localhost] {msandbox} (employees) > EXPLAIN SELECT<br />
+    ->      e.emp_no, birth_date, first_name,<br />
+    ->      last_name, gender, hire_date,<br />
+    ->      salary, from_date, to_date<br />
+    -> FROM employees e<br />
+    -> INNER JOIN salaries s ON (e.emp_no = s.emp_no)<br />
+    -> WHERE e.hire_date BETWEEN &#039;1990-06-01 00:00:00&#039; AND &#039;1990-07-01 00:00:00&#039; OR<br />
+    ->      s.from_date BETWEEN &#039;1990-06-01 00:00:00&#039; AND &#039;1990-07-01 00:00:00&#039;<br />
+    -> ORDER BY e.emp_no, hire_date, from_date \G<br />
+*************************** 1. row ***************************<br />
+           id: 1<br />
+  select_type: SIMPLE<br />
+        table: e<br />
+         type: ALL<br />
+possible_keys: PRIMARY,hire_date<br />
+          key: NULL<br />
+      key_len: NULL<br />
+          ref: NULL<br />
+         rows: 300547<br />
+        Extra: Using temporary; Using filesort<br />
+*************************** 2. row ***************************<br />
+           id: 1<br />
+  select_type: SIMPLE<br />
+        table: s<br />
+         type: ref<br />
+possible_keys: PRIMARY,emp_no,from_date<br />
+          key: PRIMARY<br />
+      key_len: 4<br />
+          ref: employees.e.emp_no<br />
+         rows: 4<br />
+        Extra: Using where<br />
+2 rows in set (0.00 sec)</p>
+<p>mysql [localhost] {msandbox} (employees) > SHOW CREATE TABLE employees \G<br />
+*************************** 1. row ***************************<br />
+       Table: employees<br />
+Create Table: CREATE TABLE `employees` (<br />
+  `emp_no` int(11) NOT NULL,<br />
+  `birth_date` date NOT NULL,<br />
+  `first_name` varchar(14) NOT NULL,<br />
+  `last_name` varchar(16) NOT NULL,<br />
+  `gender` enum(&#039;M&#039;,&#039;F&#039;) NOT NULL,<br />
+  `hire_date` date NOT NULL,<br />
+  PRIMARY KEY (`emp_no`),<br />
+  KEY `hire_date` (`hire_date`)<br />
+) ENGINE=InnoDB DEFAULT CHARSET=latin1<br />
+1 row in set (0.00 sec)</p>
+<p>mysql [localhost] {msandbox} (employees) > SHOW CREATE TABLE salaries \G<br />
+*************************** 1. row ***************************<br />
+       Table: salaries<br />
+Create Table: CREATE TABLE `salaries` (<br />
+  `emp_no` int(11) NOT NULL,<br />
+  `salary` int(11) NOT NULL,<br />
+  `from_date` date NOT NULL,<br />
+  `to_date` date NOT NULL,<br />
+  PRIMARY KEY (`emp_no`,`from_date`),<br />
+  KEY `emp_no` (`emp_no`),<br />
+  KEY `from_date` (`from_date`),<br />
+  CONSTRAINT `salaries_ibfk_1` FOREIGN KEY (`emp_no`) REFERENCES `employees` (`emp_no`) ON DELETE CASCADE<br />
+) ENGINE=InnoDB DEFAULT CHARSET=latin1<br />
+1 row in set (0.00 sec)<&#47;pre><br />
+If you look at the execution plan, the optimizer will always do a full table scan of the first table even though there is proper indexes on employees.hire_date and salaries.from_date. This is because it cannot know in advance which rows from the second table will match the rows from the second table, the OR conditions needs to match both tables. For the sake of brevity, observe what happens if I change the OR condition to AND instead.</p>
+<pre class="brush: sql; gutter: true; first-line: 1">
+*************************** 1. row ***************************<br />
+           id: 1<br />
+  select_type: SIMPLE<br />
+        table: e<br />
+         type: range<br />
+possible_keys: PRIMARY,hire_date<br />
+          key: hire_date<br />
+      key_len: 3<br />
+          ref: NULL<br />
+         rows: 2101<br />
+        Extra: Using where; Using temporary; Using filesort<br />
+*************************** 2. row ***************************<br />
+           id: 1<br />
+  select_type: SIMPLE<br />
+        table: s<br />
+         type: ref<br />
+possible_keys: PRIMARY,emp_no,from_date<br />
+          key: PRIMARY<br />
+      key_len: 4<br />
+          ref: employees.e.emp_no<br />
+         rows: 4<br />
+        Extra: Using where<br />
+2 rows in set (0.00 sec)<&#47;pre><br />
+As you can see, the optimizer now used the hire_date index in which for every matching row, there is about 4 rows matching on the second table.</p>
+<p>Notice how many index reads and the full table scan the original query does. Imagine if you are working on a reporting query based on date ranges that has millions of rows for the first table, you might have to wait the next day for the results!</p>
+<pre class="brush: sql; gutter: true; first-line: 1">mysql [localhost] {msandbox} (employees) > SELECT<br />
+    ->      e.emp_no, birth_date, first_name,<br />
+    ->      last_name, gender, hire_date,<br />
+    ->      salary, from_date, to_date<br />
+    -> FROM employees e<br />
+    -> INNER JOIN salaries s ON (e.emp_no = s.emp_no)<br />
+    -> WHERE e.hire_date BETWEEN &#039;1990-06-01 00:00:00&#039; AND &#039;1990-07-01 00:00:00&#039; OR<br />
+    ->      s.from_date BETWEEN &#039;1990-06-01 00:00:00&#039; AND &#039;1990-07-01 00:00:00&#039;<br />
+    -> ORDER BY e.emp_no, hire_date, from_date;</p>
+<p>b5abad9ac152d6289d4cc62b7d71fb83  -<br />
+28133 rows in set (1.39 sec)</p>
+<p>mysql [localhost] {msandbox} (employees) > NOPAGER; SHOW STATUS LIKE &#039;Handler%&#039;;<br />
+PAGER set to stdout<br />
++----------------------------+---------+<br />
+| Variable_name              | Value   |<br />
++----------------------------+---------+<br />
+...<br />
+| Handler_read_key           | 300025  |<br />
+| Handler_read_next          | 2844047 |<br />
+| Handler_read_prev          | 0       |<br />
+| Handler_read_rnd           | 28133   |<br />
+| Handler_read_rnd_next      | 328159  |<br />
+...<br />
+| Handler_write              | 28133   |<br />
++----------------------------+---------+<br />
+15 rows in set (0.00 sec)<&#47;pre><br />
+Because the queries need to return rows matching both tables, we can rewrite it as UNION instead separating the WHERE clauses into 2 different SELECT queries like below.</p>
+<pre class="brush: sql; gutter: true; first-line: 1">mysql [localhost] {msandbox} (employees) > PAGER md5sum; FLUSH STATUS;<br />
+PAGER set to &#039;md5sum&#039;<br />
+Query OK, 0 rows affected (0.00 sec)</p>
+<p>mysql [localhost] {msandbox} (employees) > (<br />
+    -> SELECT<br />
+    ->      e.emp_no, birth_date, first_name,<br />
+    ->      last_name, gender, hire_date,<br />
+    ->      salary, from_date, to_date<br />
+    -> FROM employees e<br />
+    -> INNER JOIN salaries s ON (e.emp_no = s.emp_no)<br />
+    -> WHERE e.hire_date BETWEEN &#039;1990-06-01 00:00:00&#039; AND &#039;1990-07-01 00:00:00&#039;<br />
+    -> )<br />
+    -> UNION<br />
+    -> (<br />
+    -> SELECT e.emp_no, birth_date, first_name,<br />
+    ->      last_name, gender, hire_date,<br />
+    ->      salary, from_date, to_date<br />
+    -> FROM employees e<br />
+    -> INNER JOIN salaries s ON (e.emp_no = s.emp_no)<br />
+    -> WHERE s.from_date BETWEEN &#039;1990-06-01 00:00:00&#039; AND &#039;1990-07-01 00:00:00&#039;<br />
+    -> )<br />
+    -> ORDER BY emp_no, hire_date, from_date;<br />
+b5abad9ac152d6289d4cc62b7d71fb83  -<br />
+28133 rows in set (0.14 sec)</p>
+<p>mysql [localhost] {msandbox} (employees) > NOPAGER; SHOW STATUS LIKE &#039;Handler%&#039;;<br />
+PAGER set to stdout<br />
++----------------------------+-------+<br />
+| Variable_name              | Value |<br />
++----------------------------+-------+<br />
+...<br />
+| Handler_read_key           | 11746 |<br />
+| Handler_read_next          | 31302 |<br />
+| Handler_read_prev          | 0     |<br />
+| Handler_read_rnd           | 28133 |<br />
+| Handler_read_rnd_next      | 28134 |<br />
+...<br />
+| Handler_write              | 29200 |<br />
++----------------------------+-------+<br />
+15 rows in set (0.00 sec)<&#47;pre></p>
+<p>With this approach, you are actually limiting the number of rows needed to be examined immediately before being JOINed. There is no real downsize with the new query, you just have to watch out that results from both SELECT&rsquo;s does not grow too large, nearly the size of the total rows of both tables. In which case, you should not be doing the latter anyway i.e. trying to filter with big date ranges especially if you have very large dataset, instead you should implement summary tables that produces the results you need.</p>

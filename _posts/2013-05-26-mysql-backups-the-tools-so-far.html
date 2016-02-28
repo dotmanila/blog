@@ -1,0 +1,97 @@
+---
+layout: post
+status: publish
+published: true
+title: MySQL Backups, The Tools So Far
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 92
+wordpress_url: http://dotmanila.com/blog/?p=92
+date: '2013-05-26 13:12:48 -0400'
+date_gmt: '2013-05-26 13:12:48 -0400'
+categories:
+- MySQL
+- Linux
+tags: []
+comments:
+- id: 33
+  author: Jordan Clockwin
+  author_email: clockwin23@gmail.com
+  author_url: ''
+  date: '2013-09-12 13:01:00 -0400'
+  date_gmt: '2013-09-12 13:01:00 -0400'
+  content: 'One more tool is MySQL Dump in dbForge Studio for MySQL: http:&#47;&#47;www.devart.com&#47;dbforge&#47;mysql&#47;studio&#47;mysql-backup.html'
+- id: 37
+  author: Glenn Mckay
+  author_email: glenn1.mckay@gmail.com
+  author_url: ''
+  date: '2013-12-10 10:07:00 -0500'
+  date_gmt: '2013-12-10 10:07:00 -0500'
+  content: SQLyog has compress backup functionality and you can schedule backup jobs
+    with ease https:&#47;&#47;www.webyog.com&#47;product&#47;sqlyog
+- id: 46
+  author: Smith Gilligan
+  author_email: smithgilly72@yahoo.com
+  author_url: ''
+  date: '2014-06-25 10:39:00 -0400'
+  date_gmt: '2014-06-25 10:39:00 -0400'
+  content: |-
+    Great article. Thanks for the useful list.
+
+    I personally use PhpMyBackup Pro to backup my MySQL databases. It is free and very easy to use MySQL backup tool
+
+
+    I installed PhpMyBackup Pro on my server following the guide at http:&#47;&#47;www.rosehosting.com&#47;blog&#47;install-phpmybackuppro-on-a-centos-6-vps
+
+
+    Thanks again!
+- id: 55
+  author: Thomas Bernimont
+  author_email: ebernimont@hotmail.com
+  author_url: ''
+  date: '2015-06-12 12:44:00 -0400'
+  date_gmt: '2015-06-12 12:44:00 -0400'
+  content: |-
+    I have a web solution to make auto mysql backup easly.
+
+    Here the link for Auto Backup for MySQL : http:&#47;&#47;www.abmysql.com&#47;
+
+    In August 2014 our technical service alert: we lost all our mysql database after a restart of your servers.
+    After studying the case, it can happen in larger society, the best! it's scary.
+    Are you sure that your data bases backup function properly ?
+- id: 57
+  author: Jordan Sanders
+  author_email: devartstaff@gmail.com
+  author_url: ''
+  date: '2015-07-24 11:05:00 -0400'
+  date_gmt: '2015-07-24 11:05:00 -0400'
+  content: |-
+    dbForge Studio for MySQL is also tool for backup and any other MySQL management,development and administration tasks. Totally recommend to try it
+
+
+    http:&#47;&#47;www.devart.com&#47;dbforge&#47;mysql&#47;studio&#47;mysql-backup.html
+---
+<p>Backups is one of the most important part of any MySQL deployment, and nowadays, there's a number of tools to choose from depending on how your organization implements them. The purpose of this post is to enumerate the main tools and some helpers that makes backing up and testing&#47;restoring your backups more convenient. By all means this is not the complete list, I'm sure I am missing some, so feel free to add them through the comments.</p>
+<p><strong>The Core Tools<&#47;strong></p>
+<ul>
+<li><span style="line-height: 13px;"><a href="http:&#47;&#47;dev.mysql.com&#47;doc&#47;refman&#47;5.5&#47;en&#47;mysqldump.html">mysqldump<&#47;a> - is a logical backup tool for MySQL. It creates plain text files with SQL statements which you can directly import back to the server. Some would say mysqldump is not really a backup tool as you cannot get a consistent backup without disrupting operations while the server is running. I'd say this is just a limitation, if your dataset is small and still happen to have some zero operation hours within your backup frequency period, mysqldump is still a plausible backup solution.<&#47;span><&#47;li>
+<li><a href="https:&#47;&#47;launchpad.net&#47;mydumper">mydumper<&#47;a> - like mysqldump is also a logical backup tool, the only difference is that it can do the same in parallel. It's complementary tool, myloader, allows the same parallel operations for loading your data back. At the time of this writing, there are no specific packages you can easily install, so you will have to compile the tools yourself.<&#47;li>
+<li>mylvmsnapshot &#47; Filesystem Snapshots - LVM snapshots was previously a really hot option for backups when MyISAM roams the land and there was no native way to take hot backups from the server itself. In fact, if you're still living with non-transactional tables like MyISAM, filesystem snapshots would still be an option for you. On the other hand, LVM snapshots in particular have <a href="http:&#47;&#47;www.mysqlperformanceblog.com&#47;2009&#47;02&#47;05&#47;disaster-lvm-performance-in-snapshot-mode&#47;">significant overhead<&#47;a> if you decide to leave the snapshot in place for too long. Ideally as soon as you've taken the snapshot, copy the contents and purge it, especially if you're taking them from your production where all reads and writes happens. Yves from mysqlperformanceblog.com recently implemented <a href="http:&#47;&#47;www.mysqlperformanceblog.com&#47;2013&#47;05&#47;24&#47;zfs-on-linux-and-mysql&#47;">ZFS snapshots<&#47;a> and have nice things to say about it. Other filesystems based snapshots would be from your SAN storage.<&#47;li>
+<li><a href="http:&#47;&#47;www.percona.com&#47;doc&#47;percona-xtrabackup&#47;2.1&#47;">XtraBackup<&#47;a> - has been almost the defacto for MySQL backups, for pure InnoDB workloads, it can do a completely non-intrusive backups. It does this by copying by copying the files then copying the changes from the transactions at the same time. Between the time the backup starts and finishes, all changes while the files are being copied are also tracked. These changes are logged into a special file which are then used to prepare the backup when you need it.<&#47;li>
+<li><a href="http:&#47;&#47;www.mysql.com&#47;products&#47;enterprise&#47;backup.html">MySQL Enterprise Backup<&#47;a> - is actually where XtraBackup was patterned from. MEB started as InnoDB Hot Backup and has been a commercial software from the beginning and is now part of an Oracle MySQL Enterprise subscription.<&#47;li>
+<li><a href="http:&#47;&#47;dev.mysql.com&#47;doc&#47;refman&#47;5.5&#47;en&#47;mysqlhotcopy.html">mysqlhotcopy<&#47;a> - is an almost forgotten piece of software, it was originally targetted for MyISAM and Archive workloads and requires the MySQL server to be locked for the duration of the backup because it has to copy the files while the server is running. If a logical dump like mysqldump or my dumper does not fit but you can tolerate the constraints, mysqlhotcopy might still serve &nbsp;a purpose in your stack.<&#47;li><br />
+<&#47;ul><br />
+<strong>The Helpers<&#47;strong></p>
+<ul>
+<li><span style="line-height: 13px;"><a href="http:&#47;&#47;www.zmanda.com&#47;download-zrm.php">Zmanda Recovery Manager for MySQL<&#47;a> - is a multi-purpose backup manager for several different objects including MySQL. It supports a number of neat features for managing your backups, scheduling, alerts, full and incrementals and plugins, one of which is it can use XtraBackup and another, filesystem based snapshots.<&#47;span><&#47;li>
+<li><a href="http:&#47;&#47;support.severalnines.com&#47;entries&#47;22358923-Backup-s9s-backup-and-installing-xtrabackup">s9s_backup<&#47;a> - is a free offering from SeveralNines, it is a wrapper for XtraBackup and also integrated to their own ClusterControl offering.<&#47;li>
+<li><a href="http:&#47;&#47;hollandbackup.org&#47;">Holland Backup<&#47;a> - is another plugins based backup manager from Rackspace. It takes a few notch to get up and running though based on documentation, but I suspect it has its own advantages. I have never used this one yet.<&#47;li>
+<li><a href="https:&#47;&#47;github.com&#47;dotmanila&#47;mootools&#47;blob&#47;master&#47;xbackup.sh">xbackup.sh<&#47;a> - is my own spinup based using bash scripting for XtraBackup. I created this for a customer bearing in mind only specific need, however it can easily be extended &nbsp;to fill other gaps.<&#47;li>
+<li><a href="https:&#47;&#47;code.google.com&#47;p&#47;xtrabackup-manager&#47;">XtraBackup Manager<&#47;a> - is a PHP based backup wrapper for XtraBackup, although it has taken little traction lately, if you are a serious PHP shop, you might want to consider testing it out or even picking it up and contributing.<&#47;li><br />
+<&#47;ul><br />
+These are great backup tools, however, you only have chose what will work best for you. Do you have any interesting stories about dumping one for the other? Feel free to share them on the comments :)</p>

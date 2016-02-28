@@ -1,0 +1,44 @@
+---
+layout: post
+status: publish
+published: true
+title: Does Python MySQLdb Make You Wait?
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 161
+wordpress_url: http://dotmanila.com/blog/?p=161
+date: '2014-11-05 08:14:31 -0500'
+date_gmt: '2014-11-05 08:14:31 -0500'
+categories:
+- MySQL
+- Python
+tags:
+- mysqldb
+- timeout
+comments:
+- id: 50
+  author: Dani&euml;l van Eeden
+  author_email: daniel.van.eeden@gmail.com
+  author_url: ''
+  date: '2014-11-05 13:23:00 -0500'
+  date_gmt: '2014-11-05 13:23:00 -0500'
+  content: I try to switch everything from MySQLdb to mysql-connector-python as that
+    supports python3 and supports more of the newer features in MySQL.
+---
+<p>Recently while writing a data loading application for a customer, we've come into a problematic situation with the Python MySQLdb module that can be installed with base RHEL repository or DVD. As a little background, this application uses an HA architecture where a Virtual IP can be assigned to different servers during a failover scenario. However, during failover, as long as the VIPs are not re-assigned, the application could hang waiting for query response. A quick strace reveals something like:</p>
+<pre class="brush: shell; gutter: false; first-line: 1">sendto(5, "W\0\0\0\3SELECT * FROM dataloader.bo"..., 91, 0, NULL, 0) = 91<br />
+recvfrom(5,<&#47;pre><br />
+Further test reveals that this problem will not timeout until after about 15 minutes which matches the default tcp_retries2 value on the system (see man 7 tcp):</p>
+<pre class="brush: shell; gutter: false; first-line: 1">[root@node1 ~]# cat &#47;proc&#47;sys&#47;net&#47;ipv4&#47;tcp_retries2<br />
+15<&#47;pre><br />
+It turns out that this version of MySQLdb module has client net read and write timeouts set to 0 allowing the TCP setting to kick in instead at the maximum of ~15mins. Another problem, the same version does not support setting the timeout values, you'd have to upgrade to >= 1.2.4 to get this support within your MySQLdb.connect calls.</p>
+<p>So, I see a few things we can do here:</p>
+<ol>
+<li>Set default read and write timeouts to the module. I've opened an issue on GitHub via https:&#47;&#47;github.com&#47;farcepest&#47;MySQLdb1&#47;issues&#47;86 as this is only 2 lines change on the code. Hopefully this makes next release!<&#47;li>
+<li>Of course, if you do decide to use the current release, make sure to set read_timeout and write_timeout values appropriate to your application!<&#47;li><br />
+<&#47;ol></p>

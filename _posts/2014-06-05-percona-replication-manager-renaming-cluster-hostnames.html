@@ -1,0 +1,119 @@
+---
+layout: post
+status: publish
+published: true
+title: Percona Replication Manager - Renaming Cluster Hostnames
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 156
+wordpress_url: http://dotmanila.com/blog/?p=156
+date: '2014-06-05 03:25:09 -0400'
+date_gmt: '2014-06-05 03:25:09 -0400'
+categories:
+- Pacemaker
+tags:
+- pacemaker
+- corosync
+- prm
+comments: []
+---
+<p>Recently I've had to rename a node on a production cluster - however, I did not have an experience on this yet so I decided to try on a sandbox and establish a known procedure. Without further ado, assuming we have 3 nodes and we want to rename ha3's hostname to ha03.</p>
+<pre class="brush: bash; gutter: true; first-line: 1">[root@ha01 ~]# crm status<br />
+Last updated: Wed Jun  4 21:55:01 2014<br />
+Last change: Wed Jun  4 21:53:35 2014 via crm_attribute on ha01.localdomain<br />
+Stack: classic openais (with plugin)<br />
+Current DC: ha01.localdomain - partition with quorum<br />
+Version: 1.1.10-14.el6_5.2-368c726<br />
+3 Nodes configured, 3 expected votes<br />
+6 Resources configured</p>
+<p>Online: [ ha01.localdomain ha02.localdomain ha3.localdomain ]</p>
+<p> Master&#47;Slave Set: ms_MySQL [p_mysql]<br />
+     Masters: [ ha01.localdomain ]<br />
+     Slaves: [ ha02.localdomain ha3.localdomain ]<br />
+ Clone Set: ping_gw_clone [ping_gw]<br />
+     Started: [ ha01.localdomain ha02.localdomain ha3.localdomain ]<&#47;pre><br />
+Here we go:</p>
+<ol>
+<li>Put ha3 on standby:
+<pre class="brush: bash; gutter: true; first-line: 1">[root@ha01 ~]# crm node standby ha3.localdomain<&#47;pre><br />
+<&#47;li></p>
+<li>Stop the cluster services on the node and delete it from the cluster, because I was using Pacemaker and Corosync, I followed the steps <a href="http:&#47;&#47;clusterlabs.org&#47;doc&#47;en-US&#47;Pacemaker&#47;1.0&#47;html&#47;Pacemaker_Explained&#47;s-node-delete.html">here<&#47;a>, then rename the hostname as you would on any Linux system.
+<pre class="brush: bash; gutter: true; first-line: 1">[root@ha3 mysql]# crm_node -i<br />
+1111009472<br />
+[root@ha3 mysql]# service pacemaker stop<br />
+Signaling Pacemaker Cluster Manager to terminate           [  OK  ]<br />
+Waiting for cluster services to unload.                    [  OK  ]<br />
+[root@ha3 mysql]# service corosync stop<br />
+Signaling Corosync Cluster Engine (corosync) to terminate: [  OK  ]<br />
+Waiting for corosync services to unload:.                  [  OK  ]</p>
+<p>[root@ha01 ~]# crm_node --force -R 1111009472<br />
+[root@ha01 ~]# cibadmin --delete --obj_type nodes --crm_xml &#039;<node uname="ha3.localdomain"&#47;>&#039;<br />
+[root@ha01 ~]# cibadmin --delete --obj_type status --crm_xml &#039;<node_state uname="ha3.localdomain"&#47;>&#039;<&#47;pre><br />
+<&#47;li></p>
+<li>Put the whole cluster in maintenance mode and restart the Pacemaker and Corosync services. I could not find a way to rename cleanly without doing this, if I don't I always end up with ghost nodes on the cluster. Because ha01 is the current Master, I would cycle all cluster services - stopping at ha01 last and starting with it first.
+<pre class="brush: bash; gutter: true; first-line: 1">[root@ha01 ~]# crm configure property maintenance-mode=true</p>
+<p>[root@ha02 ~]# service pacemaker stop<br />
+Signaling Pacemaker Cluster Manager to terminate           [  OK  ]<br />
+Waiting for cluster services to unload                     [  OK  ]<br />
+[root@ha02 ~]# service corosync stop<br />
+Signaling Corosync Cluster Engine (corosync) to terminate: [  OK  ]<br />
+Waiting for corosync services to unload:                   [  OK  ]</p>
+<p>[root@ha01 ~]# service pacemaker stop<br />
+Signaling Pacemaker Cluster Manager to terminate           [  OK  ]<br />
+Waiting for cluster services to unload.                    [  OK  ]<br />
+[root@ha01 ~]# service corosync stop<br />
+Signaling Corosync Cluster Engine (corosync) to terminate: [  OK  ]<br />
+Waiting for corosync services to unload:.                  [  OK  ]</p>
+<p>[root@ha01 ~]# service corosync start<br />
+Starting Corosync Cluster Engine (corosync):               [  OK  ]<br />
+[root@ha01 ~]# service pacemaker start<br />
+Starting Pacemaker Cluster Manager                         [  OK  ]</p>
+<p>[root@ha02 ~]# service corosync start<br />
+Starting Corosync Cluster Engine (corosync):               [  OK  ]<br />
+[root@ha02 ~]# service pacemaker start<br />
+Starting Pacemaker Cluster Manager                         [  OK  ]<&#47;pre><br />
+<&#47;li></p>
+<li>Disable maintenance-mode and verify the 2 actives nodes are up and running:
+<pre class="brush: bash; gutter: true; first-line: 1">[root@ha01 ~]# crm configure property maintenance-mode=false<br />
+[root@ha01 ~]# crm status<br />
+Last updated: Wed Jun  4 22:56:24 2014<br />
+Last change: Wed Jun  4 22:56:23 2014 via crm_attribute on ha02.localdomain<br />
+Stack: classic openais (with plugin)<br />
+Current DC: ha02.localdomain - partition with quorum<br />
+Version: 1.1.10-14.el6_5.2-368c726<br />
+2 Nodes configured, 3 expected votes<br />
+5 Resources configured</p>
+<p>Online: [ ha01.localdomain ha02.localdomain ]</p>
+<p> Master&#47;Slave Set: ms_MySQL [p_mysql]<br />
+     Masters: [ ha01.localdomain ]<br />
+     Slaves: [ ha02.localdomain ]<br />
+ Clone Set: ping_gw_clone [ping_gw]<br />
+     Started: [ ha01.localdomain ha02.localdomain ]<&#47;pre><br />
+<&#47;li></p>
+<li>Then start the cluster services on ha03 which I renamed:
+<pre class="brush: bash; gutter: true; first-line: 1">[root@ha03 mysql]# service corosync start<br />
+Starting Corosync Cluster Engine (corosync):               [  OK  ]<br />
+[root@ha03 mysql]# service pacemaker start<br />
+Starting Pacemaker Cluster Manager                         [  OK  ]<br />
+[root@ha03 mysql]# crm status<br />
+Last updated: Wed Jun  4 23:14:30 2014<br />
+Last change: Wed Jun  4 23:14:25 2014 via crm_attribute on ha02.localdomain<br />
+Stack: classic openais (with plugin)<br />
+Current DC: ha02.localdomain - partition with quorum<br />
+Version: 1.1.10-14.el6_5.2-368c726<br />
+3 Nodes configured, 3 expected votes<br />
+6 Resources configured</p>
+<p>Online: [ ha01.localdomain ha02.localdomain ha03.localdomain ]</p>
+<p> Master&#47;Slave Set: ms_MySQL [p_mysql]<br />
+     Masters: [ ha01.localdomain ]<br />
+     Slaves: [ ha02.localdomain ha03.localdomain ]<br />
+ Clone Set: ping_gw_clone [ping_gw]<br />
+     Started: [ ha01.localdomain ha02.localdomain ha03.localdomain ]<&#47;pre><br />
+<&#47;li><br />
+<&#47;ol><br />
+Do you have any more convenient way of doing this?</p>

@@ -1,0 +1,56 @@
+---
+layout: post
+status: publish
+published: true
+title: Assigning Limited Set of Floating IPs with Your DevStack
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 170
+wordpress_url: http://dotmanila.com/blog/?p=170
+date: '2015-02-22 08:37:30 -0500'
+date_gmt: '2015-02-22 08:37:30 -0500'
+categories:
+- Openstack
+tags:
+- devstack
+comments: []
+---
+<p>Recently, I wanted to use the public IPs assigned to my server to the devstack environment. The hosting company has allocated a <strong>&#47;29<&#47;strong> subnet for the server I am renting. In my <em>local.conf<&#47;em> I can either specify <em>FLOATING_RANGE=204.xx.xxx.10&#47;29<&#47;em> to so I can use <em>204.xx.xxx.10-14<&#47;em> as floating IPs for the VMs. However, I do not want to assign the first usable IP (<em>204.xx.xxx.10<&#47;em>) as the physical host is already using it so I can access the server remotely. If I do so otherwise, it will mess up the <strong>iptables<&#47;strong> rules on the server and lock me out.</p>
+<p>There are two ways I can prevent the .10 IP to be associated as floating-IP, first, I can simply specify 204.xx.xxx.12&#47;30 in the range so that nova will only use .13-.14 IPs but this kinda put the .11-.12 pair unused. So instead, I keep the &#47;29 rage specified and I can manually associate floating IPs to my instances, skipping the .10. For example, using the nova client, it shows I have 6 usable IPs, when in fact I can only use the last 4.</p>
+<pre class="brush: text; gutter: false; first-line: 1">revin@acme:~&#47;devstack$ nova floating-ip-bulk-list<br />
++------------+---------------+---------------+--------+-----------+<br />
+| project_id | address       | instance_uuid | pool   | interface |<br />
++------------+---------------+---------------+--------+-----------+<br />
+| -          | 204.xx.xxx.9  | -             | public | br100     |<br />
+| -          | 204.xx.xxx.10 | -             | public | br100     |<br />
+| -          | 204.xx.xxx.11 | -             | public | br100     |<br />
+| -          | 204.xx.xxx.12 | -             | public | br100     |<br />
+| -          | 204.xx.xxx.13 | -             | public | br100     |<br />
+| -          | 204.xx.xxx.14 | -             | public | br100     |<br />
++------------+---------------+---------------+--------+-----------+<&#47;pre><br />
+To assign .11 IP manually, I can also use the nova-client this way and skip .9-.10:</p>
+<pre class="brush: text; gutter: false; first-line: 1">revin@acme:~&#47;devstack$ nova floating-ip-associate fedora 204.xx.xxx.11<br />
+revin@acme:~&#47;devstack$ nova floating-ip-bulk-list<br />
++------------+---------------+--------------------------------------+--------+-----------+<br />
+| project_id | address&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | instance_uuid&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | pool&nbsp;&nbsp; | interface |<br />
++------------+---------------+--------------------------------------+--------+-----------+<br />
+| -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 204.xx.xxx.9&nbsp; | -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | public | br100&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 204.xx.xxx.10 | -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | public | br100&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 204.xx.xxx.11 | 654af53b-6acc-40f3-acf3-552598b4b651 | public | br100&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 204.xx.xxx.12 | -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | public | br100&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 204.xx.xxx.13 | -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | public | br100&nbsp;&nbsp;&nbsp;&nbsp; |<br />
+| -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | 204.xx.xxx.14 | -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | public | br100&nbsp;&nbsp;&nbsp;&nbsp; |<br />
++------------+---------------+--------------------------------------+--------+-----------+<br />
+revin@acme:~&#47;devstack$ nova list<br />
++--------------------------------------+--------+--------+------------+-------------+-----------------------------------+<br />
+| ID&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Name&nbsp;&nbsp; | Status | Task State | Power State | Networks&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |<br />
++--------------------------------------+--------+--------+------------+-------------+-----------------------------------+<br />
+| 654af53b-6acc-40f3-acf3-552598b4b651 | fedora | ACTIVE | -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Running&nbsp;&nbsp;&nbsp;&nbsp; | private=10.11.12.2, 204.xx.xxx.13 |<br />
++--------------------------------------+--------+--------+------------+-------------+-----------------------------------+<&#47;pre><br />
+When using Horizon, avoid doing the association via Project > Compute > Instances > Associate Floating IP. This will pick the first available floating IP which is not what you want. Instead, do it via Project > Compute > Access &amp; Security > Floating IPs, then allocate IPs to the project until you get the first IP you can assign.</p>
+<p>I wish somehow Nova-Network can exclude some IPs from this range to make it easier :).</p>

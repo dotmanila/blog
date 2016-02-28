@@ -1,0 +1,44 @@
+---
+layout: post
+status: publish
+published: true
+title: Cacti Graphs for Apache Not Working? Check Your IPv6
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 50
+wordpress_url: http://dotmanila.com/blog/?p=50
+date: '2012-10-14 02:24:51 -0400'
+date_gmt: '2012-10-14 02:24:51 -0400'
+categories:
+- Apache
+- Cacti
+tags:
+- cacti
+- apache
+comments: []
+---
+<p>I was wondering earlier why my Apache Cacti graphs were all graphing 0s. Looking to test manually, I see it's either 0s or -1s like below.</p>
+<pre class="brush: bash; gutter: true; first-line: 1; highlight: []; html-script: false">[revin@forge ~]# &#47;usr&#47;bin&#47;php -q &#47;usr&#47;share&#47;cacti&#47;scripts&#47;ss_get_by_ssh.php --host xx.xx.xxx.xxx --type apache --items g1,g3<br />
+g1:-1 g3:-1<&#47;pre></p>
+<p>Looking at the Apache access log on the target server, I noticed Cacti was trying to connect to the IPv6 loopback address "::1".</p>
+<pre class="brush: bash; gutter: true; first-line: 1; highlight: []; html-script: false">::1 - - [13&#47;Oct&#47;2012:22:00:02 -0400] "GET &#47;server-status?auto HTTP&#47;1.0" 403 290 "-" "Cacti&#47;1.0"<&#47;pre></p>
+<p>Fortunately this was easy to fix, either disable IPv6 on Apache or allow access to &#47;server-status via the IPv6 loopback address.</p>
+<p>From your httpd.conf, you can disable IPv6 by changing the Listen directive to:</p>
+<pre class="brush: bash; gutter: true; first-line: 1; highlight: []; html-script: false">Listen 0.0.0.0:80<&#47;pre></p>
+<p>Or adding the below Allow directive for &#47;server-status section:</p>
+<pre class="brush: bash; gutter: true; first-line: 1; highlight: []; html-script: false"><Location &#47;server-status><br />
+SetHandler server-status<br />
+Order deny,allow<br />
+Deny from all<br />
+Allow from 127.0.0.1<br />
+Allow from ::1<br />
+<&#47;Location><br />
+<&#47;pre></p>
+<p>And voila!</p>
+<pre class="brush: bash; gutter: true; first-line: 1; highlight: []; html-script: false">[revin@forge ~]# &#47;usr&#47;bin&#47;php -q &#47;usr&#47;share&#47;cacti&#47;scripts&#47;ss_get_by_ssh.php --host 95.211.156.71 --type apache --items g1,g3<br />
+g1:83968 g3:6<&#47;pre></p>

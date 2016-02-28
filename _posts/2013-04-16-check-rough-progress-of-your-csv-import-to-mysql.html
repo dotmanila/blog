@@ -1,0 +1,48 @@
+---
+layout: post
+status: publish
+published: true
+title: Check (Rough) Progress of Your CSV Import to MySQL
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 73
+wordpress_url: http://dotmanila.com/blog/?p=73
+date: '2013-04-16 07:23:39 -0400'
+date_gmt: '2013-04-16 07:23:39 -0400'
+categories:
+- MySQL
+- Linux
+tags:
+- csv
+- sql
+- import
+comments: []
+---
+<p>If you are importing large CSV or SQL dumps to MySQL, chances are you were looking for ways to see how far the import has gone. If you know how many rows there are from the file being imported, you can do a SELECT COUNT(*) but that would take sometime for the query to finish especially on really big imports.</p>
+<p>Using <em>lsof<&#47;em>, you can monitor the current file offset to which a process is reading from using the <em>-o<&#47;em> option. Knowing the size of the file and some snapshots of the offset, you can get a somewhat rough idea of how fast the import goes. Note though that this is only file-read-pace not actual import speed as MySQL import can vary depending on a number of conditions i.e. table growth, secondary indexes, etc.</p>
+<p>Let's say I am importing a 1.1G CSV file into a table.</p>
+<pre class="brush: bash; gutter: true; first-line: 1">[revin@forge msb_5_5_300]$ ls -al &#47;wok&#47;dta&#47;samples&#47;ft_history.csv<br />
+-rw-rw-r--. 1 revin revin 1075456654 Nov 8 23:25 &#47;wok&#47;dta&#47;samples&#47;ft_history.csv</p>
+<p>mysql [localhost] {msandbox} (test) > LOAD DATA INFILE &#039;&#47;wok&#47;dta&#47;samples&#47;ft_history.csv&#039; INTO TABLE ft_history;<&#47;pre><br />
+I'd try to sample the OFFSET column from the lsof output at some interval, in my case I used a 6seconds interval:</p>
+<pre class="brush: bash; gutter: true; first-line: 1">[revin@forge msb_5_5_300]$ date &amp;&amp; lsof -o | grep ft_history<br />
+Tue Apr 16 02:53:50 EDT 2013<br />
+...<br />
+mysqld 2178 revin 107r REG 9,3 0t34865152 3029595 &#47;wok&#47;dta&#47;samples&#47;ft_history.csv</p>
+<p>[revin@forge msb_5_5_300]$ date &amp;&amp; lsof -o | grep ft_history<br />
+Tue Apr 16 02:53:56 EDT 2013<br />
+...<br />
+mysqld 2178 revin 107r REG 9,3 0t48234496 3029595 &#47;wok&#47;dta&#47;samples&#47;ft_history.csv<&#47;pre><br />
+The 7th column is my OFFSET, a simple formula:</p>
+<pre class="brush: bash; gutter: true; first-line: 1">((csv_size &#47; (offset_1 - offset_2)) * interval_seconds) &#47; 60 = Estimate in minutes<&#47;pre><br />
+In my case I have:</p>
+<pre class="brush: actionscript3; gutter: true; first-line: 1">((1075456654 &#47; (48234496 - 34865152)) * 6) &#47; 60 = 8mins<&#47;pre><br />
+In reality, my import took about 10mins, not bad considering the size of the table in the end.</p>
+<pre class="brush: bash; gutter: true; first-line: 1">mysql [localhost] {msandbox} (test) > LOAD DATA INFILE &#039;&#47;wok&#47;dta&#47;samples&#47;ft_history.csv&#039; INTO TABLE ft_history;<br />
+Query OK, 18294744 rows affected (9 min 52.91 sec)<br />
+Records: 18294744 Deleted: 0 Skipped: 0 Warnings: 0<&#47;pre></p>

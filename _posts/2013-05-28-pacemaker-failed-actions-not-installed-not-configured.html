@@ -1,0 +1,34 @@
+---
+layout: post
+status: publish
+published: true
+title: Pacemaker Failed Actions 'not installed' And 'not configured'
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 100
+wordpress_url: http://dotmanila.com/blog/?p=100
+date: '2013-05-28 05:40:15 -0400'
+date_gmt: '2013-05-28 05:40:15 -0400'
+categories:
+- Pacemaker
+tags:
+- pacemaker
+- cluster
+comments: []
+---
+<p>Playing around with Percona Replication Manager, and being new to Pacemaker, some errors were somewhat cryptic.</p>
+<pre class="brush: text; gutter: true; first-line: 1">May 26 09:53:39 [2181] ha01.localdomain&nbsp;&nbsp;&nbsp; pengine:&nbsp;&nbsp; notice: unpack_rsc_op:&nbsp;&nbsp;&nbsp; Preventing p_mysql from re-starting on ha02.localdomain: operation monitor failed &#039;not installed&#039; (rc=5)<br />
+May 26 09:53:39 [2181] ha01.localdomain&nbsp;&nbsp;&nbsp; pengine:&nbsp;&nbsp; notice: unpack_rsc_op:&nbsp;&nbsp;&nbsp; Preventing op from re-starting on ha02.localdomain: operation monitor failed &#039;not installed&#039; (rc=5)<&#47;pre><br />
+First, it says here that I have 'operation monitor failed' on node ha02.localdomain. This error simply means 'I cannot run the operation monitor because it is not installed'. Where does this operation supposed to come from, from the resource agent. Turns out, I did not have the mysql resource agent in place under &#47;usr&#47;lib&#47;ocf&#47;resource.d&#47;percona.</p>
+<pre class="brush: text; gutter: true; first-line: 1">May 27 23:24:29 [2013] ha01.localdomain crm_resource:&nbsp;&nbsp;&nbsp; error: unpack_rsc_op:&nbsp; Preventing reader_vip_2 from re-starting anywhere in the cluster : operation start failed &#039;not configured&#039; (rc=6)<br />
+May 27 23:24:29 [2013] ha01.localdomain crm_resource:&nbsp;&nbsp;&nbsp; error: unpack_rsc_op:&nbsp; Preventing reader_vip_1 from re-starting anywhere in the cluster : operation start failed &#039;not configured&#039; (rc=6)<&#47;pre><br />
+Second, here it says it failed to start the the reader_vip resources, lookint only from the cluster status outputs the cause is not obvious. If you dig closely from the cluster logs, you may find the reason why. In my case, the reader VIP cannot be bound to an interface which was non-existent.</p>
+<pre class="brush: text; gutter: true; first-line: 1">May 27 23:24:29 [1581] ha01.localdomain&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; lrmd:&nbsp;&nbsp; notice: operation_finished:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; reader_vip_1_start_0:1971 [ eth1: unknown interface: No such device ]<br />
+May 27 23:24:29 [1581] ha01.localdomain&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; lrmd:&nbsp;&nbsp; notice: operation_finished:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; reader_vip_1_start_0:1971 [&nbsp; ]<br />
+May 27 23:24:29 [1581] ha01.localdomain&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; lrmd:&nbsp;&nbsp; notice: operation_finished:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; reader_vip_1_start_0:1971 [ &#47;usr&#47;lib64&#47;heartbeat&#47;findif version 2.99.1 Copyright Alan Robertson ]<&#47;pre><br />
+I plan to write more as I explore the exciting world of Pacemaker!</p>

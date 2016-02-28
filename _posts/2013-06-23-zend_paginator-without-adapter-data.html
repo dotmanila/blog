@@ -1,0 +1,47 @@
+---
+layout: post
+status: publish
+published: true
+title: Zend_Paginator Without Adapter Data
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 112
+wordpress_url: http://dotmanila.com/blog/?p=112
+date: '2013-06-23 02:53:56 -0400'
+date_gmt: '2013-06-23 02:53:56 -0400'
+categories:
+- PHP
+tags:
+- faster queries
+- model
+comments: []
+---
+<p>If you simply want to take advantage of Zend_Paginators page generation function without feeding it actual data, how do you do it? Simple, implement Zend_Paginator_Adapter_Interface in your custom class and override three functions like below:</p>
+<pre class="brush: php; gutter: true; first-line: 1"><?php<br />
+class Dotmanila_Paginator_Adapter_Null implements Zend_Paginator_Adapter_Interface<br />
+{<br />
+    private $_count = 0;</p>
+<p>    public function __construct(array $data)<br />
+    {<br />
+        if(isset($data[&#039;count&#039;]) AND $data[&#039;count&#039;] > 0) {<br />
+            $this->_count = $data[&#039;count&#039;];<br />
+        }<br />
+    }</p>
+<p>    public function getItems($offset, $itemCountPerPage)<br />
+    {<br />
+        return array();<br />
+    }</p>
+<p>    public function count()<br />
+    {<br />
+        return $this->_count;<br />
+    }<br />
+}<br />
+?><&#47;pre><br />
+Then you can use it as you would the paginator class - the only parameter to the constructor is the total number of items to base the paging against.</p>
+<pre class="brush: php; gutter: true; first-line: 1">$dpa = new Dotmanila_Paginator_Adapter_Null(array(&#039;count&#039; => $count));<br />
+$pages = $dpa->getPages();<&#47;pre></p>

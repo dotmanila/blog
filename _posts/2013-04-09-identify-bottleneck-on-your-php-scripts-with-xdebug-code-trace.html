@@ -1,0 +1,65 @@
+---
+layout: post
+status: publish
+published: true
+title: Identify Bottleneck on your PHP Scripts with XDebug Code Trace
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 68
+wordpress_url: http://dotmanila.com/blog/?p=68
+date: '2013-04-09 13:53:37 -0400'
+date_gmt: '2013-04-09 13:53:37 -0400'
+categories:
+- PHP
+tags:
+- debugging
+- code trace
+comments:
+- id: 4
+  author: Reduce Stack Frame Depth from XDebug Trace Output
+  author_email: ''
+  author_url: http://dotmanila.com/blog/2013/04/reduce-stack-frame-depth-from-xdebug-trace-output/
+  date: '2013-04-17 07:20:38 -0400'
+  date_gmt: '2013-04-17 07:20:38 -0400'
+  content: "[...] I&#8217;ve written about how to dump code trace from your PHP application
+    using XDebug, however, more often that not, you get lengthy results and [...]"
+---
+<p>XDebug has been around for a while and I have been looking to try its features for a while. This time, I was able to poke around briefly with dumping code traces for my PHP code.</p>
+<p>1. Make sure to have XDebug extension installed, you can either do so from your OS package management or build from source. For this exercise I have installed version 2.1.</p>
+<p>2. Enable the extension on your PHP configuration file.</p>
+<pre class="brush: text; gutter: true; first-line: 1">; Enable xdebug extension module<br />
+zend_extension=&#47;usr&#47;lib64&#47;php&#47;modules&#47;xdebug.so</p>
+<p>xdebug.auto_trace = 1<br />
+; If you have 2.2, you can enable code trace dumps on demand by adding XDEBUG_TRACE=1 on your URL or as POST variable<br />
+;xdebug.trace_enable_trigger = 1<br />
+xdebug.trace_output_dir = &#47;var&#47;www&#47;sites&#47;default&#47;xdebug-trace-outputs<&#47;pre><br />
+3. For the <em><strong>xdebug.trace_output_dir<&#47;strong><&#47;em> path, make sure it is writable by the HTTP user, in this case I have Apache and the user is, obviously, apache too.</p>
+<pre class="brush: text; gutter: true; first-line: 1">chown apache.revin &#47;var&#47;www&#47;sites&#47;default&#47;xdebug-trace-outputs<br />
+chmod 0770 &#47;var&#47;www&#47;sites&#47;default&#47;xdebug-trace-outputs<&#47;pre><br />
+4. Test your script! Note that every execution or request will generate a code trace dump and by default they will be overwritten. You can set <em><strong>xdebug.trace_options<&#47;strong><&#47;em> to 1 to create new file per request. Ideally, this is only done on your testing environment :-)</p>
+<p>Here's a sample output of a code trace:</p>
+<pre class="brush: text; gutter: true; first-line: 1">TRACE START [2013-04-09 13:34:44]<br />
+0.0013 651112 -> {main}() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:0<br />
+0.0015 651288 -> define() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:2<br />
+0.0017 651288 -> define() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:3<br />
+0.0017 651288 -> define() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:4<br />
+0.0018 651360 -> dirname() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:5<br />
+0.0018 651352 -> define() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:5<br />
+0.0019 651272 -> error_reporting() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:16<br />
+0.0020 651816 -> strpos() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:67<br />
+0.0021 651896 -> str_replace() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:77<br />
+0.0021 651984 -> pathinfo() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:92<br />
+0.0022 651896 -> define() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:92<br />
+0.0023 651968 -> define() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:93<br />
+0.0023 652088 -> pathinfo() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:94<br />
+0.0023 652000 -> define() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:94<br />
+0.0024 652032 -> define() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:95<br />
+0.0024 651904 -> is_dir() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:97<br />
+0.0025 652080 -> define() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:108<br />
+...<&#47;pre><br />
+Enjoy!</p>

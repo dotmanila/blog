@@ -1,0 +1,75 @@
+---
+layout: post
+status: publish
+published: true
+title: Limit The Size of Your Core Files on Linux
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 134
+wordpress_url: http://dotmanila.com/blog/?p=134
+date: '2013-09-13 03:33:15 -0400'
+date_gmt: '2013-09-13 03:33:15 -0400'
+categories:
+- MySQL
+- Linux
+tags: []
+comments:
+- id: 34
+  author: Dani&euml;l van Eeden
+  author_email: daniel.van.eeden@gmail.com
+  author_url: ''
+  date: '2013-09-28 08:11:00 -0400'
+  date_gmt: '2013-09-28 08:11:00 -0400'
+  content: Maybe it is related to this bug? http:&#47;&#47;bugs.mysql.com&#47;bug.php?id=62224
+    What about the settings in &#47;etc&#47;security&#47;limits.conf ?
+- id: 35
+  author: Jervin R
+  author_email: social@dotmanila.com
+  author_url: http://dotmanila.com/blog/
+  date: '2013-09-28 08:29:00 -0400'
+  date_gmt: '2013-09-28 08:29:00 -0400'
+  content: |-
+    Daniel,
+
+    Looks to be the same yeah. I've tried a handful of possibilities on limits.conf including wildcard, root, and mysql user limits and combination thereof. I'd like to try this on other Linux OSes though.
+- id: 54
+  author: jeunito
+  author_email: jose.asuncion@gmail.com
+  author_url: ''
+  date: '2014-12-16 23:43:00 -0500'
+  date_gmt: '2014-12-16 23:43:00 -0500'
+  content: |-
+    Don't know if you resolved this but I ran into this problem too. It turns out limits.conf is only on a login basis as per the man page http:&#47;&#47;linux.die.net&#47;man&#47;5&#47;limits.conf
+
+    Also see http:&#47;&#47;www.redhat.com&#47;archives&#47;rhl-list&#47;2006-May&#47;msg00760.html
+
+
+
+    Mabuhay.
+---
+<p>So we all know that when troubleshooting MySQL crashes or any other processes in that regard, we simply enable core files to be dumped when the appropriate signal it triggered. To get the best results, we'd set the core file size limit everywhere to unlimited and be done with it, but what if you want to limit that to a certain size? I stumble to a small confusion lately when doing this for MySQL, so let me share quickly.</p>
+<p>First, for MySQL, mysqld_safe would use ulimit to set the core-file-size value you pass to it. Now remember according to the manual, this value should be in blocks (some documentation says its in chunks of 1024 bytes). However, according to my experience on CentOS 6, this is the physical block size of the device where your core_pattern is pointed to.</p>
+<pre class="brush: bash; gutter: false; first-line: 1">[root@centos6 ~]# ulimit -a<br />
+...<br />
+core file size          (blocks, -c) 0</p>
+<p>[root@centos6 ~]# cat &#47;proc&#47;sys&#47;kernel&#47;core_pattern<br />
+&#47;var&#47;tmp&#47;core</p>
+<p>[root@centos6 ~]# blockdev --getbsz &#47;dev&#47;sda2<br />
+4096<br />
+[root@centos6 ~]# blockdev --getpbsz &#47;dev&#47;sda2<br />
+512<&#47;pre><br />
+Based on the above, my core_pattern point to &#47;var, which sits on sda2. This partition according to blockdev has a filesystem blocksize of 4K and a physical block size of 512B. Putting this to the test, say I configure MySQL to a core file size ulimit of 10240, then I would get:</p>
+<pre class="brush: bash; gutter: false; first-line: 1">[root@centos6 ~]# cat &#47;proc&#47;`pidof mysqld`&#47;limits<br />
+Limit                     Soft Limit           Hard Limit           Units<br />
+...<br />
+Max core file size        5242880              5242880              bytes<&#47;pre><br />
+So, 5242880 &#47; 10240 here is 512, similarly with ulimit -c of 512000, 262144000 &#47; 512000 is 512.</p>
+<pre class="brush: bash; gutter: false; first-line: 1">[root@centos6 ~]# cat &#47;proc&#47;`pidof mysqld`&#47;limits<br />
+Limit                     Soft Limit           Hard Limit           Units<br />
+Max core file size        262144000            262144000            bytes<&#47;pre><br />
+With that out of the way, another problem you would encounter is that when trying to start the MySQL service via the standard init script or mysqld_safe that comes with your package, the limit you set will not be enforced when starting MySQL as the OS root user for some reason. I'd always get the core file size set to unlimited so I would have to sudo as the mysql user to enforce that limit explicitly. Anyone know why this is?</p>

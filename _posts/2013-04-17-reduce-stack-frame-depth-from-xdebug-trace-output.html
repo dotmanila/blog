@@ -1,0 +1,38 @@
+---
+layout: post
+status: publish
+published: true
+title: Reduce Stack Frame Depth from XDebug Trace Output
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 78
+wordpress_url: http://dotmanila.com/blog/?p=78
+date: '2013-04-17 07:20:35 -0400'
+date_gmt: '2013-04-17 07:20:35 -0400'
+categories:
+- PHP
+- Linux
+tags:
+- debugging
+- code trace
+comments: []
+---
+<p>Earlier, I've written about how to <a href="http:&#47;&#47;dotmanila.com&#47;blog&#47;2013&#47;04&#47;identify-bottleneck-on-your-php-scripts-with-xdebug-code-trace&#47;">dump code trace<&#47;a> from your PHP application using XDebug, however, more often that not, you get lengthy results and you simply want to get an overview up to certain depth. I've created a simple PHP for that which you can find <a href="https:&#47;&#47;github.com&#47;dotmanila&#47;mootools&#47;blob&#47;master&#47;process-xdebug-trace.php">here<&#47;a>.</p>
+<p>It's fairly easy to use, simply feed in the path to the trace file and the stack frame depth you desire i.e.</p>
+<pre class="brush: bash; gutter: false; first-line: 1">php process-xdebug-trace.php -f &#47;path&#47;to&#47;trace.file -d frame-depth<&#47;pre><br />
+And you get an update like this:</p>
+<pre class="brush: bash; gutter: false; first-line: 1">[root@thriller ~]# php &#47;home&#47;revin&#47;process-xdebug-trace.php -f &#47;var&#47;www&#47;sites&#47;default&#47;xdebug-trace-outputs&#47;trace.2043925204.xt -d 3<br />
+Processing &#47;var&#47;www&#47;sites&#47;default&#47;xdebug-trace-outputs&#47;trace.2043925204.xt with stack frame depth of 3</p>
+<p>0.0013           652920     0.0013     652920   -> {main}() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:0<br />
+0.0003              176     0.0016     653096     -> define() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:2<br />
+0.0002                0     0.0018     653096     -> define() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:3<br />
+0.0001                0     0.0019     653096     -> define() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:4<br />
+0.0001               72     0.0020     653168     -> dirname() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:5<br />
+0.0000               -8     0.0020     653160     -> define() &#47;var&#47;www&#47;sites&#47;default&#47;index.php:5<br />
+...<&#47;pre><br />
+The first and second column are relative changes of execution time and memory usage respectively.</p>

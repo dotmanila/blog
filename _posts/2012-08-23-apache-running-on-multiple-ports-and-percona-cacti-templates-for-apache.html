@@ -1,0 +1,35 @@
+---
+layout: post
+status: publish
+published: true
+title: Apache Running on Multiple Ports and Percona Cacti Templates for Apache
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 10
+wordpress_url: http://dotmanila.com/blog/?p=10
+date: '2012-08-23 03:54:15 -0400'
+date_gmt: '2012-08-23 03:54:15 -0400'
+categories:
+- Apache
+tags:
+- cacti
+- apache
+comments:
+- id: 2
+  author: daphatmac
+  author_email: daphatmac@hotmail.com
+  author_url: ''
+  date: '2013-01-07 23:20:00 -0500'
+  date_gmt: '2013-01-07 23:20:00 -0500'
+  content: Great article - thanks for taking the time to lay it out so nicely!
+---
+<p>For some users, running Apache on different ports is more economical than adding multiple IPs to the same server i.e. when you have several Apache servers behind a load balancer where the public IP is in front of the load balancer. If you're thinking of using the <a href="http:&#47;&#47;www.percona.com&#47;doc&#47;percona-monitoring-plugins&#47;cacti&#47;">Percona Monitoring Templates for Cacti<&#47;a> particularly for Apache, you might be surprised at first that it only polls Apache on the default port 80. Fortunately, this is not totally impossible and is even <a href="http:&#47;&#47;www.percona.com&#47;doc&#47;percona-monitoring-plugins&#47;cacti&#47;customizing-templates.html">documented<&#47;a>. And it is quite easy to enable this.</p>
+<p>Once you have downloaded the template package, execute the command like below and then import the resulting template as you normally would instead of the default that comes with the package. In my case, I would import <strong>templates&#47;cacti_host_template_percona_apache_server_ht_0.8.6i-sver1.0.1-custom-port.xml<&#47;strong>.</p>
+<pre>revin@bonnie:~&#47;Downloads&#47;percona-monitoring-plugins-1.0.1&#47;cacti$ .&#47;bin&#47;pmp-cacti-template --mpds port2 --script scripts&#47;ss_get_by_ssh.php definitions&#47;apache.def > templates&#47;cacti_host_template_percona_apache_server_ht_0.8.6i-sver1.0.1-custom-port.xml<&#47;pre><br />
+Once imported, adding a Apache graphs for your devices would now ask for the port you want to monitor. However, your graphs would still be named with the default making it difficult to determine which graphs are for port 80 and which is for port 8080 for example. To fix this, simply go to Console > Graph Templates and select one of the Percona Apache * templates. Under the graph template section, check "Use Per-Graph Value (Ignore this Value)". The next time you add an Apache graph, it will now ask you for the port and custom title within the graphs like the one pictured below.</p>
+<p><img class="alignnone size-full wp-image-11" title="apache-percona-templates-custom-port.jpg" src="http:&#47;&#47;dotmanila.com&#47;blog&#47;wp-content&#47;uploads&#47;2012&#47;08&#47;apache-percona-templates-custom-port.png" alt="" width="609" height="463" &#47;></p>

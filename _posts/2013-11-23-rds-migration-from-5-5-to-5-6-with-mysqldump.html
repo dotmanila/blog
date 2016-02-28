@@ -1,0 +1,69 @@
+---
+layout: post
+status: publish
+published: true
+title: RDS Migration from 5.5 to 5.6 with mysqldump
+author:
+  display_name: Jervin R
+  login: revin
+  email: social@dotmanila.com
+  url: ''
+author_login: revin
+author_email: social@dotmanila.com
+wordpress_id: 137
+wordpress_url: http://dotmanila.com/blog/?p=137
+date: '2013-11-23 00:35:07 -0500'
+date_gmt: '2013-11-23 00:35:07 -0500'
+categories:
+- MySQL
+tags:
+- import
+- RDS
+comments: []
+---
+<p>Amazon recently announced support for 5.6, unfortunately, direct upgrade from lower versions is not yet supported. On a recent migration work - running mysqldump flat out would've meant 6+hrs of downtime. How did we cut it off to 1h45m? Simple, run dump per table and pipe it directly to the new 5.6 instance in parallel using Percona Server's mysqldump utility to take advantage of <a href="http:&#47;&#47;www.percona.com&#47;doc&#47;percona-server&#47;5.5&#47;management&#47;innodb_expanded_fast_index_creation.html">--innodb-optimize-keys<&#47;a>.</p>
+<p>Here's the base script we used - of course, YMMV and make sure to optimize the destination instance as well!</p>
+<pre class="brush: bash; gutter: true; first-line: 1">#!&#47;bin&#47;bash<br />
+# export-run.sh<br />
+# This is the wrapper script which builds up the list of tables to split into $parallel parts and calls export-tables.sh</p>
+<p>parallel=6<br />
+dblist="db1 db2 db3"<br />
+smysql="mysql -hsource-55.us-east-1.rds.amazonaws.com"<br />
+dmysql="mysql -hdest-56.us-east-1.rds.amazonaws.com"</p>
+<p>dbin=$(echo $dblist|sed "s&#47; &#47;&#039;,&#039;&#47;g")</p>
+<p>_echo() {<br />
+   echo "$(date +%Y-%m-%d_%H_%M_%S) INFO $1"<br />
+}</p>
+<p># List tables, split into $parallel parts that we will dump and import later<br />
+rm -rf table*<br />
+$smysql information_schema -BNe "SELECT CONCAT(TABLE_SCHEMA,&#039;.&#039;,TABLE_NAME) FROM TABLES WHERE TABLE_SCHEMA IN (&#039;${dbin}&#039;)" > tables.out<br />
+tcount=$(cat tables.out|wc -l)<br />
+maxlne=$((($tcount&#47;$parallel)+1))<br />
+split -l$maxlne -a1 -d tables.out tablen<br />
+_echo "Will be dumping $tcount tables, $maxlne per thread"</p>
+<p>_echo "Cleaning up databases on destination"<br />
+# Modify this if you actually want to DROP the databases from the destination first<br />
+for d in $dblist; do echo "$dmysql -e &#039;DROP DATABASE IF EXISTS $d; CREATE DATABASE $d&#039;"; done</p>
+<p>_echo "Starting parallel dump and imports"<br />
+> export.log<br />
+for t in $(ls|grep tablen); do ( ( bash export-tables.sh $t | tee -a export.log ) &amp; ); done<&#47;pre><br />
+After splitting the jobs into n files, you then fork processes using the script below to do the actual work.</p>
+<pre class="brush: bash; gutter: true; first-line: 1">#!&#47;bin&#47;bash<br />
+# export-tables.sh</p>
+<p>smysql="-hsource-55.us-east-1.rds.amazonaws.com"<br />
+dmysql="mysql -hdest-56.us-east-1.rds.amazonaws.com"<br />
+tables=$1</p>
+<p>_echo() {<br />
+   echo "$(date +%Y-%m-%d_%H_%M_%S) INFO $1"<br />
+}</p>
+<p>for l in $(cat $tables); do<br />
+  d=$(echo $l|cut -d&#039;.&#039; -f1)<br />
+  t=$(echo $l|cut -d&#039;.&#039; -f2)<br />
+  _echo "Processing $d.$t"<br />
+  cmd=".&#47;ps&#47;bin&#47;mysqldump --order-by-primary --innodb-optimize-keys $smysql $d $t"<br />
+  $cmd | $dmysql $d<br />
+  _echo "... completed $d.$t"<br />
+done<&#47;pre><br />
+And as bonus, here is how you can monitor for progress:</p>
+<pre class="brush: bash; gutter: true; first-line: 1">while true; do echo "$(date +%Y-%m-%d_%H_%M_%S) $(cat export.log |grep completed|wc -l)&#47;$(cat tables.out|wc -l)"; sleep 5; done<&#47;pre><br />
+This is exactly <a href="http:&#47;&#47;www.tocker.ca&#47;2013&#47;11&#47;22&#47;how-do-you-use-mysqldump.html">how we want mysqldump<&#47;a> to be Morgan! :-)</p>
